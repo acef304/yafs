@@ -12,42 +12,37 @@ public class SecondMain {
     static MemorySession mSession = null;
 
     public static void main(String... args) {
+        System.load("/usr/local/lib/libfuse.dylib");  // TODO
 
-//        System.load("/usr/lib64/libfuse3.so.3.10.5");  // B
-        System.load("/usr/local/lib/libfuse.dylib");  // B
+        args = new String[]{"-f", "-d", "/users/aleksey/mnt"};  // TODO
 
-        args = new String[]{"-f", "-d", "/users/aleksey/mnt"};  // C
+        MyMain.files.add("file54");                             // FIXME
+        MyMain.filesContent.put("file54", new File("content of file54".getBytes(), (short)0777)); // FIXME
 
-        MyMain.files.add("file54");
-        MyMain.filesContent.put("file54", "content of file54");
-
-//        MemorySegment segment = null;
         try (MemorySession session = MemorySession.openShared()) {
             mSession = session;
             var arguments = Arrays.stream(args)
                     .map(session::allocateUtf8String)
-                    .toArray(MemorySegment[]::new); // E
-//            var allocator = SegmentAllocator.ofScope(scope);  // F
+                    .toArray(MemorySegment[]::new);
             var argumentCount = args.length;
-//            var argumentSpace = SegmentAllocator.newNativeArena(session).allocate(ValueLayout.ADDRESS,);
             var argumentSpace = session.allocateArray(ValueLayout.ADDRESS, argumentCount);
             for (int i=0; i<argumentCount; i++) {
                 argumentSpace.setAtIndex(ValueLayout.ADDRESS, i, arguments[i]);
             }
-//            var mmem =
-//            var ggg = MemoryLayout.sequenceLayout(1, MemoryLayout.)
 
             MemorySegment operationsMemorySegment = fuse_operations.allocate(session);
 
-            fuse_operations.getattr$set(operationsMemorySegment, fuse_operations.getattr.allocate((path, stat) -> getAttr(path, stat), session).address()); // A
-            fuse_operations.readdir$set(operationsMemorySegment, fuse_operations.readdir.allocate((path, buffer, filler, offset, fileInfo) -> readDir(path, buffer, filler, offset, fileInfo), session).address());
-            fuse_operations.read$set(operationsMemorySegment, fuse_operations.read.allocate((path, buffer, size, offset, fileInfo) -> read(path, buffer, size, offset, fileInfo), session).address());
-            fuse_operations.mkdir$set(operationsMemorySegment, fuse_operations.mkdir.allocate((MemoryAddress x0, short x1) -> doMkdir(x0, x1), session).address());
-            fuse_operations.mknod$set(operationsMemorySegment, fuse_operations.mknod.allocate((MemoryAddress x0, short x1, int x2) -> doMknod(x0, x1, x2), session).address());
-            fuse_operations.write$set(operationsMemorySegment, fuse_operations.write.allocate((MemoryAddress x0, MemoryAddress x1, long x2, long x3, MemoryAddress x4) -> doWrite(x0, x1, x2, x3, x4), session).address());
+            fuse_operations.getattr$set(operationsMemorySegment, fuse_operations.getattr.allocate(SecondMain::getAttr, session).address());
+            fuse_operations.readdir$set(operationsMemorySegment, fuse_operations.readdir.allocate(SecondMain::readDir, session).address());
+            fuse_operations.read$set(operationsMemorySegment, fuse_operations.read.allocate(SecondMain::read, session).address());
+            fuse_operations.mkdir$set(operationsMemorySegment, fuse_operations.mkdir.allocate(SecondMain::doMkdir, session).address());
+            fuse_operations.mknod$set(operationsMemorySegment, fuse_operations.mknod.allocate(SecondMain::doMknod, session).address());
+            fuse_operations.write$set(operationsMemorySegment, fuse_operations.write.allocate(SecondMain::doWrite, session).address());
+            fuse_operations.unlink$set(operationsMemorySegment, fuse_operations.unlink.allocate(SecondMain::doUnlink, session).address());
+            fuse_operations.rmdir$set(operationsMemorySegment, fuse_operations.rmdir.allocate(SecondMain::doRmdir, session).address());
+            fuse_operations.chmod$set(operationsMemorySegment, fuse_operations.chmod.allocate(SecondMain::doChmod, session).address());
 
-            fuse_h.fuse_main_real(argumentCount, argumentSpace, operationsMemorySegment, operationsMemorySegment.byteSize(), MemoryAddress.NULL); // B
-
+            fuse_h.fuse_main_real(argumentCount, argumentSpace, operationsMemorySegment, operationsMemorySegment.byteSize(), MemoryAddress.NULL);
         }
     }
 
@@ -60,7 +55,7 @@ public class SecondMain {
 
         // setting the stat atim (last access time)
         Instant now = Instant.now();
-        timespec.tv_sec$set(stat.st_atimespec$slice(statMemorySegment), now.getEpochSecond()); // C
+        timespec.tv_sec$set(stat.st_atimespec$slice(statMemorySegment), now.getEpochSecond());
         timespec.tv_nsec$set(stat.st_atimespec$slice(statMemorySegment), now.getNano());
 
         // setting the stat mtim (last modify time)
@@ -68,28 +63,28 @@ public class SecondMain {
         timespec.tv_sec$set(stat.st_mtimespec$slice(statMemorySegment), now.getEpochSecond());
         timespec.tv_nsec$set(stat.st_mtimespec$slice(statMemorySegment), now.getNano());
 
-        stat.st_uid$set(statMemorySegment, 501); // D
+        stat.st_uid$set(statMemorySegment, 501); // TODO
         stat.st_gid$set(statMemorySegment, 20);
 
         if ("/".equals(jPath) || MyMain.isDir(jPath.substring(1))) {
-            stat.st_mode$set(statMemorySegment, (short) (S_IFDIR | 0777)); // E
-            stat.st_nlink$set(statMemorySegment, (short) 2);                       // F
+            stat.st_mode$set(statMemorySegment, (short) (S_IFDIR | 0777)); // TODO
+            stat.st_nlink$set(statMemorySegment, (short) 2);
         } else if (MyMain.isFile(jPath.substring(1))) {
-            stat.st_mode$set(statMemorySegment, (short) (S_IFREG | 0777));
+            stat.st_mode$set(statMemorySegment, (short) (S_IFREG | 0777)); // TODO
             stat.st_nlink$set(statMemorySegment, (short) 1);
-            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath.substring(1)).getBytes().length); // G
+            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath.substring(1)).content.length);
         } else {
-            return -2;          // H
+            return -2;
         }
 
-        return 0; // I
+        return 0;
     }
 
     public static int readDir(MemoryAddress path, MemoryAddress buffer, MemoryAddress filler, long offset, MemoryAddress fileInfo) {
 
         String jPath = path.getUtf8String(0);
-        fuse_fill_dir_t fuse_fill_dir_t = org.fuse.fuse_fill_dir_t.ofAddress(filler, mSession);  // A
-        fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(".").address(), MemoryAddress.NULL, 0); // B
+        fuse_fill_dir_t fuse_fill_dir_t = org.fuse.fuse_fill_dir_t.ofAddress(filler, mSession);
+        fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(".").address(), MemoryAddress.NULL, 0);
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String("..").address(), MemoryAddress.NULL, 0);
         if ("/".equals(jPath)) {  // C
             for (String p : MyMain.directories) {
@@ -111,14 +106,14 @@ public class SecondMain {
             return -1;
         }
 
-        byte[] selected = MyMain.filesContent.get(jPath).getBytes();
+        byte[] selected = MyMain.filesContent.get(jPath).content;
 
-        ByteBuffer byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer(); // A
+        ByteBuffer byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer();
 
-        byte[] src = Arrays.copyOfRange(selected, Math.toIntExact(offset), Math.toIntExact(size)); // B
-        byteBuffer.put(src); // C
+        byte[] src = Arrays.copyOfRange(selected, Math.toIntExact(offset), Math.toIntExact(size));
+        byteBuffer.put(src);
 
-        return src.length; // D
+        return src.length;
     }
 
     static int doMkdir(MemoryAddress path, int mode) {
@@ -136,9 +131,41 @@ public class SecondMain {
     static int doWrite(MemoryAddress path, MemoryAddress buffer, long size, long offset, MemoryAddress info) {
         byte[] array = MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.JAVA_BYTE.withOrder(ByteOrder.nativeOrder()));
 
-        String jPath =path.getUtf8String(0).substring(1);
-        MyMain.filesContent.put(jPath, new String(array, java.nio.charset.StandardCharsets.UTF_8));
+        String jPath = path.getUtf8String(0).substring(1);
+        if (MyMain.filesContent.containsKey(jPath)) {
+            byte[] existing = MyMain.filesContent.get(jPath).content;
+            if (existing.length > offset + size) {
+                System.arraycopy(array, 0, existing, (int)offset, (int)size);
+                MyMain.filesContent.put(jPath, new File(existing, (short)0777));
+            } else {
+                byte[] newArray = new byte[(int)offset + (int)size];
+                System.arraycopy(existing, 0, newArray, 0, (int)offset);
+                System.arraycopy(array, 0, newArray, (int)offset, (int)size);
+                MyMain.filesContent.put(jPath, new File(newArray, (short)0777));
+            }
+        }
         return Math.toIntExact(size);
+    }
+
+    static int doUnlink(MemoryAddress path) {
+        String jPath = path.getUtf8String(0);
+        MyMain.files.remove(jPath);
+        MyMain.filesContent.remove(jPath);
+        return 0;
+    }
+
+    static int doRmdir(MemoryAddress path) {
+        String jPath = path.getUtf8String(0);
+        MyMain.directories.remove(jPath);
+        return 0;
+    }
+
+    static int doChmod(MemoryAddress path, short attrs) {
+        String jPath = path.getUtf8String(0);
+        if (MyMain.filesContent.containsKey(jPath)) {
+            MyMain.filesContent.get(jPath).attributes = attrs;
+        }
+        return 0;
     }
 }
 

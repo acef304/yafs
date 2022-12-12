@@ -6,7 +6,7 @@ import java.util.Map;
 public class MyMain {
     static List<String> directories = new ArrayList<>();
     static List<String> files = new ArrayList<>();
-    static Map<String, String> filesContent = new HashMap<>();
+    static Map<String, File> filesContent = new HashMap<>();
 
     static boolean isDir(String path) {
         return directories.contains(path);
@@ -14,7 +14,7 @@ public class MyMain {
 
     static void addFile(String filename) {
         files.add(filename);
-        filesContent.put(filename,"");
+        filesContent.put(filename, new File(new byte[0], (short)0777));
     }
 
     static boolean isFile(String path) {
