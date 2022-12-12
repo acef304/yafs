@@ -50,25 +50,6 @@ public class SecondMain {
 
         }
     }
-//
-//
-//        try (var scope = MemorySegment.newSharedScope()) {  // D
-//            rsScope = scope;
-//            var arguments = Arrays.stream(args).map(s -> toCString(s, scope)).toArray(MemorySegment[]::new); // E
-//            var allocator = SegmentAllocator.ofScope(scope);  // F
-//            var argumentCount = args.length;
-//            var argumentSpace = allocator.allocateArray(CLinker.C_POINTER, arguments); // G
-//
-//            MemorySegment operationsMemorySegment = fuse_operations.allocate(scope);  // H
-//        }
-
-//    }
-
-//    public static MemorySegment toCString(String s, MemorySession session) {
-//        MemorySegment cString = MemorySegment.allocateNative(s.length() + 1, session);
-//        cString.setUtf8String(0, s);
-//        return cString;
-//    }
 
     public static int getAttr(MemoryAddress path, MemoryAddress mStat) {
         String jPath = path.getUtf8String(0);
@@ -86,9 +67,6 @@ public class SecondMain {
         now = Instant.now();
         timespec.tv_sec$set(stat.st_mtimespec$slice(statMemorySegment), now.getEpochSecond());
         timespec.tv_nsec$set(stat.st_mtimespec$slice(statMemorySegment), now.getNano());
-
-//        stat.st_uid$set(statMemorySegment, 1000); // D
-//        stat.st_gid$set(statMemorySegment, 1000);
 
         stat.st_uid$set(statMemorySegment, 501); // D
         stat.st_gid$set(statMemorySegment, 20);
@@ -135,7 +113,6 @@ public class SecondMain {
 
         byte[] selected = MyMain.filesContent.get(jPath).getBytes();
 
-//        ByteBuffer byteBuffer = buffer.asSegment(size, rsScope).asByteBuffer(); // A
         ByteBuffer byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer(); // A
 
         byte[] src = Arrays.copyOfRange(selected, Math.toIntExact(offset), Math.toIntExact(size)); // B
@@ -157,9 +134,7 @@ public class SecondMain {
     }
 
     static int doWrite(MemoryAddress path, MemoryAddress buffer, long size, long offset, MemoryAddress info) {
-//        byte[] array = buffer.asSegment(size, rsScope).toByteArray(); // A
         byte[] array = MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.JAVA_BYTE.withOrder(ByteOrder.nativeOrder()));
-//        MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.OfByte);
 
         String jPath =path.getUtf8String(0).substring(1);
         MyMain.filesContent.put(jPath, new String(array, java.nio.charset.StandardCharsets.UTF_8));
