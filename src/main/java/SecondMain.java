@@ -4,7 +4,6 @@ import org.fuse.*; // A
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.time.Instant;
 import java.util.Arrays;
 
 public class SecondMain {
@@ -16,8 +15,7 @@ public class SecondMain {
 
         args = new String[]{"-f", "-d", "/users/aleksey/mnt"};  // TODO
 
-        MyMain.files.add("file54");                             // FIXME
-        MyMain.filesContent.put("file54", new File("content of file54".getBytes(), (short)0777)); // FIXME
+        MyMain.files.put("/file54", new File("content of file54".getBytes(), (short)0777)); // FIXME
         MyMain.directories.put("/", new File(new byte[0],(short)0777));
 
         try (MemorySession session = MemorySession.openShared()) {
@@ -62,10 +60,10 @@ public class SecondMain {
             mask = S_IFDIR;
             stat.st_nlink$set(statMemorySegment, (short) 2);
         } else if (MyMain.isFile(jPath)) {
-            file = MyMain.filesContent.get(jPath);
+            file = MyMain.files.get(jPath);
             mask = S_IFREG;
             stat.st_nlink$set(statMemorySegment, (short) 1);
-            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath).content.length);
+            stat.st_size$set(statMemorySegment, MyMain.files.get(jPath).content.length);
         } else {
             return -2;
         }
@@ -85,35 +83,23 @@ public class SecondMain {
 
         stat.st_uid$set(statMemorySegment, file.uid);
         stat.st_gid$set(statMemorySegment, file.gid);
-        stat.st_mode$set(statMemorySegment, (short) (mask | 0777)); // TODO
-
-//        if ("/".equals(jPath) || MyMain.isDir(jPath.substring(1))) {
-//            stat.st_mode$set(statMemorySegment, (short) (S_IFDIR | 0777)); // TODO
-//            stat.st_nlink$set(statMemorySegment, (short) 2);
-//        } else if (MyMain.isFile(jPath.substring(1))) {
-//            stat.st_mode$set(statMemorySegment, (short) (S_IFREG | 0777)); // TODO
-//            stat.st_nlink$set(statMemorySegment, (short) 1);
-//            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath.substring(1)).content.length);
-//        } else {
-//            return -2;
-//        }
+        stat.st_mode$set(statMemorySegment, (short) (mask | file.attributes));
 
         return 0;
     }
 
     public static int readDir(MemoryAddress path, MemoryAddress buffer, MemoryAddress filler, long offset, MemoryAddress fileInfo) {
-
         String jPath = path.getUtf8String(0);
         fuse_fill_dir_t fuse_fill_dir_t = org.fuse.fuse_fill_dir_t.ofAddress(filler, mSession);
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(".").address(), MemoryAddress.NULL, 0);
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String("..").address(), MemoryAddress.NULL, 0);
-        if ("/".equals(jPath)) {  // C
-            for (String p : MyMain.directories.keySet()) {
+        if ("/".equals(jPath)) {
+            for (String p : MyMain.directories.keySet().stream().filter(d -> !d.equals("/")).toList()) {
                 fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p).address(), MemoryAddress.NULL, 0);
             }
 
-            for (String p : MyMain.files) {
-                fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p).address(), MemoryAddress.NULL, 0);
+            for (String p : MyMain.files.keySet()) {
+                fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p.substring(1)).address(), MemoryAddress.NULL, 0);
             }
         }
 
@@ -127,7 +113,7 @@ public class SecondMain {
             return -1;
         }
 
-        byte[] selected = MyMain.filesContent.get(jPath).content;
+        byte[] selected = MyMain.files.get(jPath).content;
 
         ByteBuffer byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer();
 
@@ -153,16 +139,16 @@ public class SecondMain {
         byte[] array = MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.JAVA_BYTE.withOrder(ByteOrder.nativeOrder()));
 
         String jPath = path.getUtf8String(0);
-        if (MyMain.filesContent.containsKey(jPath)) {
-            byte[] existing = MyMain.filesContent.get(jPath).content;
+        if (MyMain.files.containsKey(jPath)) {
+            byte[] existing = MyMain.files.get(jPath).content;
             if (existing.length > offset + size) {
                 System.arraycopy(array, 0, existing, (int)offset, (int)size);
-                MyMain.filesContent.put(jPath, new File(existing, (short)0777));
+                MyMain.files.put(jPath, new File(existing, (short)0777));
             } else {
                 byte[] newArray = new byte[(int)offset + (int)size];
                 System.arraycopy(existing, 0, newArray, 0, (int)offset);
                 System.arraycopy(array, 0, newArray, (int)offset, (int)size);
-                MyMain.filesContent.put(jPath, new File(newArray, (short)0777));
+                MyMain.files.put(jPath, new File(newArray, (short)0777));
             }
         }
         return Math.toIntExact(size);
@@ -171,7 +157,6 @@ public class SecondMain {
     static int doUnlink(MemoryAddress path) {
         String jPath = path.getUtf8String(0);
         MyMain.files.remove(jPath);
-        MyMain.filesContent.remove(jPath);
         return 0;
     }
 
@@ -183,8 +168,8 @@ public class SecondMain {
 
     static int doChmod(MemoryAddress path, short attrs) {
         String jPath = path.getUtf8String(0);
-        if (MyMain.filesContent.containsKey(jPath)) {
-            MyMain.filesContent.get(jPath).attributes = attrs;
+        if (MyMain.files.containsKey(jPath)) {
+            MyMain.files.get(jPath).attributes = attrs;
         }
         return 0;
     }
