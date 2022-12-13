@@ -4,12 +4,12 @@ import java.util.List;
 import java.util.Map;
 
 public class MyMain {
-    static List<String> directories = new ArrayList<>();
+    static Map<String, File> directories = new HashMap<>();
     static List<String> files = new ArrayList<>();
     static Map<String, File> filesContent = new HashMap<>();
 
     static boolean isDir(String path) {
-        return directories.contains(path);
+        return directories.containsKey(path);
     }
 
     static void addFile(String filename) {

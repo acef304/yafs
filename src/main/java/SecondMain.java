@@ -18,6 +18,7 @@ public class SecondMain {
 
         MyMain.files.add("file54");                             // FIXME
         MyMain.filesContent.put("file54", new File("content of file54".getBytes(), (short)0777)); // FIXME
+        MyMain.directories.put("/", new File(new byte[0],(short)0777));
 
         try (MemorySession session = MemorySession.openShared()) {
             mSession = session;
@@ -53,29 +54,49 @@ public class SecondMain {
         int S_IFDIR = 0040000; /* directory */
         int S_IFREG = 0100000; /* regular */
 
-        // setting the stat atim (last access time)
-        Instant now = Instant.now();
-        timespec.tv_sec$set(stat.st_atimespec$slice(statMemorySegment), now.getEpochSecond());
-        timespec.tv_nsec$set(stat.st_atimespec$slice(statMemorySegment), now.getNano());
+        File file;
+        int mask;
 
-        // setting the stat mtim (last modify time)
-        now = Instant.now();
-        timespec.tv_sec$set(stat.st_mtimespec$slice(statMemorySegment), now.getEpochSecond());
-        timespec.tv_nsec$set(stat.st_mtimespec$slice(statMemorySegment), now.getNano());
-
-        stat.st_uid$set(statMemorySegment, 501); // TODO
-        stat.st_gid$set(statMemorySegment, 20);
-
-        if ("/".equals(jPath) || MyMain.isDir(jPath.substring(1))) {
-            stat.st_mode$set(statMemorySegment, (short) (S_IFDIR | 0777)); // TODO
+        if ("/".equals(jPath) || MyMain.isDir(jPath)) {
+            file = MyMain.directories.get(jPath);
+            mask = S_IFDIR;
             stat.st_nlink$set(statMemorySegment, (short) 2);
-        } else if (MyMain.isFile(jPath.substring(1))) {
-            stat.st_mode$set(statMemorySegment, (short) (S_IFREG | 0777)); // TODO
+        } else if (MyMain.isFile(jPath)) {
+            file = MyMain.filesContent.get(jPath);
+            mask = S_IFREG;
             stat.st_nlink$set(statMemorySegment, (short) 1);
-            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath.substring(1)).content.length);
+            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath).content.length);
         } else {
             return -2;
         }
+
+        // setting the stat atim (last access time)
+        timespec.tv_sec$set(stat.st_atimespec$slice(statMemorySegment), file.atimesec);
+        timespec.tv_nsec$set(stat.st_atimespec$slice(statMemorySegment), file.atimensec);
+
+        // setting the stat mtim (last modify time)
+        timespec.tv_sec$set(stat.st_mtimespec$slice(statMemorySegment), file.mtimesec);
+        timespec.tv_nsec$set(stat.st_mtimespec$slice(statMemorySegment), file.mtimensec);
+
+        // setting the stat ctim (last c time)
+        timespec.tv_sec$set(stat.st_ctimespec$slice(statMemorySegment), file.ctimesec);
+        timespec.tv_nsec$set(stat.st_ctimespec$slice(statMemorySegment), file.ctimensec);
+
+
+        stat.st_uid$set(statMemorySegment, file.uid);
+        stat.st_gid$set(statMemorySegment, file.gid);
+        stat.st_mode$set(statMemorySegment, (short) (mask | 0777)); // TODO
+
+//        if ("/".equals(jPath) || MyMain.isDir(jPath.substring(1))) {
+//            stat.st_mode$set(statMemorySegment, (short) (S_IFDIR | 0777)); // TODO
+//            stat.st_nlink$set(statMemorySegment, (short) 2);
+//        } else if (MyMain.isFile(jPath.substring(1))) {
+//            stat.st_mode$set(statMemorySegment, (short) (S_IFREG | 0777)); // TODO
+//            stat.st_nlink$set(statMemorySegment, (short) 1);
+//            stat.st_size$set(statMemorySegment, MyMain.filesContent.get(jPath.substring(1)).content.length);
+//        } else {
+//            return -2;
+//        }
 
         return 0;
     }
@@ -87,7 +108,7 @@ public class SecondMain {
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(".").address(), MemoryAddress.NULL, 0);
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String("..").address(), MemoryAddress.NULL, 0);
         if ("/".equals(jPath)) {  // C
-            for (String p : MyMain.directories) {
+            for (String p : MyMain.directories.keySet()) {
                 fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p).address(), MemoryAddress.NULL, 0);
             }
 
@@ -100,7 +121,7 @@ public class SecondMain {
     }
 
     public static int read(MemoryAddress path, MemoryAddress buffer, long size, long offset, MemoryAddress fileInfo) {
-        String jPath = path.getUtf8String(0).substring(1);
+        String jPath = path.getUtf8String(0);
 
         if (!MyMain.isFile(jPath)) {
             return -1;
@@ -118,20 +139,20 @@ public class SecondMain {
 
     static int doMkdir(MemoryAddress path, int mode) {
         String jPath = path.getUtf8String(0);
-        MyMain.directories.add(jPath.substring(1));
+        MyMain.directories.put(jPath, new File(new byte[0], (short)0777));
         return 0;
     }
 
     static int doMknod(MemoryAddress path, int mode, long rdev) {
         String jPath = path.getUtf8String(0);
-        MyMain.addFile(jPath.substring(1));
+        MyMain.addFile(jPath);
         return 0;
     }
 
     static int doWrite(MemoryAddress path, MemoryAddress buffer, long size, long offset, MemoryAddress info) {
         byte[] array = MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.JAVA_BYTE.withOrder(ByteOrder.nativeOrder()));
 
-        String jPath = path.getUtf8String(0).substring(1);
+        String jPath = path.getUtf8String(0);
         if (MyMain.filesContent.containsKey(jPath)) {
             byte[] existing = MyMain.filesContent.get(jPath).content;
             if (existing.length > offset + size) {
