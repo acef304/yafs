@@ -7,7 +7,7 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.lang.foreign.*;
 import static java.lang.foreign.ValueLayout.*;
- class fuse_h_1 {
+public class fuse_h_1 {
 
     public static int VQ_SYNCEVENT() {
         return (int)1024L;
