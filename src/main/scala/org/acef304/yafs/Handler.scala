@@ -1,24 +1,23 @@
 package org.acef304.yafs
 
-import org.acef304.yafs.Model.{addFile, directories, files, isDir, isFile}
 import org.fuse._
 import org.fuse.fuse_h_1.fuse_main_real
 
 import java.lang.foreign.{MemoryAddress, MemorySegment, MemorySession, ValueLayout}
 import java.nio.{ByteBuffer, ByteOrder}
-import java.util
 
-object Handler {
+case class Handler(model: Model) {
 
   var mSession: MemorySession = null
+//  val ggg = new com.sun.security.auth.module.UnixSystem
 
   def main(): Unit = {
     System.load("/usr/local/lib/libfuse.dylib") // TODO
 
     val args = List("-f", "-d", "/users/aleksey/mnt").toArray
-    Model.files.put("/file54", File.withContent("content of file54".getBytes)) // FIXME
+    model.files.put("/file54", File.withContent("content of file54".getBytes)) // FIXME
 
-    Model.directories.put("/", File.withContent(new Array[Byte](0)))
+    model.directories.put("/", File.withContent(new Array[Byte](0)))
     try {
       val session = MemorySession.openShared
       try {
@@ -41,6 +40,8 @@ object Handler {
         fuse_operations.chmod$set(operationsMemorySegment, fuse_operations.chmod.allocate(doChmod, session).address)
         fuse_main_real(argumentCount, argumentSpace, operationsMemorySegment, operationsMemorySegment.byteSize, MemoryAddress.NULL)
       } finally if (session != null) session.close()
+//      println(Model.getDirectoriesString)
+//      println(Model.getFilesString)
     }
   }
 
@@ -53,16 +54,16 @@ object Handler {
     /* regular */
     var file: File = null
     var mask = 0
-    if ("/" == jPath || isDir(jPath)) {
-      file = directories.get(jPath)
+    if ("/" == jPath || model.isDir(jPath)) {
+      file = model.directories(jPath)
       mask = S_IFDIR
       stat.st_nlink$set(statMemorySegment, 2.toShort)
     }
-    else if (isFile(jPath)) {
-      file = files.get(jPath)
+    else if (model.isFile(jPath)) {
+      file = model.files(jPath)
       mask = S_IFREG
       stat.st_nlink$set(statMemorySegment, 1.toShort)
-      stat.st_size$set(statMemorySegment, files.get(jPath).content.length)
+      stat.st_size$set(statMemorySegment, model.files(jPath).content.length())
     }
     else return -2
     // setting the stat atim (last access time)
@@ -87,11 +88,11 @@ object Handler {
     fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String("..").address, MemoryAddress.NULL, 0)
     if ("/" == jPath) {
 //      import scala.collection.JavaConversions._
-      directories.keySet.stream.filter((d: String) => !(d == "/")).forEach { p =>
+      model.directories.keySet.filter((d: String) => !(d == "/")).foreach { p =>
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p).address, MemoryAddress.NULL, 0)
       }
 
-      files.keySet.forEach{ p =>
+      model.files.keySet.foreach { p =>
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p.substring(1)).address, MemoryAddress.NULL, 0)
       }
     }
@@ -100,62 +101,55 @@ object Handler {
 
   def read(path: MemoryAddress, buffer: MemoryAddress, size: Long, offset: Long, fileInfo: MemoryAddress): Int = {
     val jPath = path.getUtf8String(0)
-    if (!isFile(jPath)) return -1
-    val selected = files.get(jPath).content
+    if (!model.isFile(jPath)) return -1
     val byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer
-    val src = util.Arrays.copyOfRange(selected, Math.toIntExact(offset), Math.toIntExact(size))
-    byteBuffer.put(src)
-    src.length
+    model.files(jPath).content.readToBuffer(byteBuffer, offset, size)
+    model.files.put(jPath, model.files(jPath).setAtime())
+//    val src = util.Arrays.copyOfRange(content, Math.toIntExact(offset), Math.toIntExact(size))
+//    byteBuffer.put(src)
+    size.toInt
+//    src.length
   }
 
   def doMkdir(path: MemoryAddress, mode: Short): Int = {
     val jPath = path.getUtf8String(0)
-    directories.put(jPath, File.withContent(new Array[Byte](0)))
+    model.directories.put(jPath, File.withContent(new Array[Byte](0)))
     0
   }
 
   def doMknod(path: MemoryAddress, mode: Short, rdev: Int): Int = {
     val jPath = path.getUtf8String(0)
-    addFile(jPath)
+    model.addFile(jPath)
     0
   }
 
   def doWrite(path: MemoryAddress, buffer: MemoryAddress, size: Long, offset: Long, info: MemoryAddress): Int = {
     val array = MemorySegment.ofAddress(buffer, size, mSession).toArray(ValueLayout.JAVA_BYTE.withOrder(ByteOrder.nativeOrder))
     val jPath = path.getUtf8String(0)
-    if (files.containsKey(jPath)) {
-      val existing = files.get(jPath).content
-      val exFile = files.get(jPath)
-      if (existing.length > offset + size) {
-        System.arraycopy(array, 0, existing, offset.toInt, size.toInt)
-        files.put(jPath, exFile.copy(content = existing))
-      } else {
-        val newArray = new Array[Byte](offset.toInt + size.toInt)
-        val exFile = files.get(jPath)
-        System.arraycopy(existing, 0, newArray, 0, offset.toInt)
-        System.arraycopy(array, 0, newArray, offset.toInt, size.toInt)
-        files.put(jPath, exFile.copy(content = newArray))
-      }
+    if (model.files.contains(jPath)) {
+      val file = model.files(jPath)
+      val modified = file.copy(content = file.content.insert(array, offset)).setMtime()
+      model.files.put(jPath, modified)
     }
     Math.toIntExact(size)
   }
 
   def doUnlink(path: MemoryAddress): Int = {
     val jPath = path.getUtf8String(0)
-    files.remove(jPath)
+    model.files.remove(jPath)
     0
   }
 
   def doRmdir(path: MemoryAddress): Int = {
     val jPath = path.getUtf8String(0)
-    directories.remove(jPath)
+    model.directories.remove(jPath)
     0
   }
 
   def doChmod(path: MemoryAddress, attrs: Short): Int = {
     val jPath = path.getUtf8String(0)
-    if (files.containsKey(jPath)) {
-      files.put(jPath, files.get(jPath).copy(attributes = attrs))
+    if (model.files.contains(jPath)) {
+      model.files.put(jPath, model.files(jPath).copy(attributes = attrs).setCtime())
     }
     0
   }

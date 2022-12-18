@@ -1,14 +1,20 @@
 package org.acef304.yafs
 
-import java.util.HashMap
+import scala.collection.concurrent.TrieMap
 
-object Model {
-  val directories: HashMap[String, File] = new HashMap[String, File]
-  val files: HashMap[String, File] = new HashMap[String, File]
 
-  def isDir(path: String): Boolean = directories.containsKey(path)
+case class Model(directories: TrieMap[String, File], files: TrieMap[String, File]) {
+  def isDir(path: String): Boolean = directories.contains(path)
 
   def addFile(filename: String): Unit = files.put(filename, File.withContent(new Array[Byte](0)))
 
-  def isFile(path: String): Boolean = files.containsKey(path)
+  def isFile(path: String): Boolean = files.contains(path)
+
+//  import readers._
+//  def getDirectoriesString = directories.toList.asJson
+//  def getFilesString = files.asJson
+}
+
+object Model{
+  def apply(): Model = Model(new TrieMap[String, File], new TrieMap[String, File])
 }

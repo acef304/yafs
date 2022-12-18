@@ -4,5 +4,5 @@ import java.util
 
 object MyApp extends App {
   println("Hello world")
-  Handler.main()
+  Handler(Model()).main()
 }
