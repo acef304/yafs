@@ -4,5 +4,7 @@ import java.util
 
 object MyApp extends App {
   println("Hello world")
-  Handler(Model()).main()
+  val model = Model()
+  Handler(model).main()
+  model.dumpFs()
 }
