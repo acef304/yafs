@@ -7,6 +7,7 @@ import java.lang.foreign.{MemoryAddress, MemorySegment, MemorySession, ValueLayo
 import java.nio.{ByteBuffer, ByteOrder}
 
 case class Handler(model: Model) {
+  val ERR_OK = 0;
 
   var mSession: MemorySession = null
 //  val ggg = new com.sun.security.auth.module.UnixSystem
@@ -78,7 +79,7 @@ case class Handler(model: Model) {
     stat.st_uid$set(statMemorySegment, file.uid)
     stat.st_gid$set(statMemorySegment, file.gid)
     stat.st_mode$set(statMemorySegment, (mask | file.attributes).toShort)
-    0
+    ERR_OK
   }
 
   def readDir(path: MemoryAddress, buffer: MemoryAddress, filler: MemoryAddress, offset: Long, fileInfo: MemoryAddress): Int = {
@@ -96,7 +97,7 @@ case class Handler(model: Model) {
         fuse_fill_dir_t.apply(buffer, mSession.allocateUtf8String(p.substring(1)).address, MemoryAddress.NULL, 0)
       }
     }
-    0
+    ERR_OK
   }
 
   def read(path: MemoryAddress, buffer: MemoryAddress, size: Long, offset: Long, fileInfo: MemoryAddress): Int = {
@@ -114,13 +115,13 @@ case class Handler(model: Model) {
   def doMkdir(path: MemoryAddress, mode: Short): Int = {
     val jPath = path.getUtf8String(0)
     model.directories.put(jPath, File.withContent(new Array[Byte](0)))
-    0
+    ERR_OK
   }
 
   def doMknod(path: MemoryAddress, mode: Short, rdev: Int): Int = {
     val jPath = path.getUtf8String(0)
     model.addFile(jPath)
-    0
+    ERR_OK
   }
 
   def doWrite(path: MemoryAddress, buffer: MemoryAddress, size: Long, offset: Long, info: MemoryAddress): Int = {
@@ -137,13 +138,13 @@ case class Handler(model: Model) {
   def doUnlink(path: MemoryAddress): Int = {
     val jPath = path.getUtf8String(0)
     model.files.remove(jPath)
-    0
+    ERR_OK
   }
 
   def doRmdir(path: MemoryAddress): Int = {
     val jPath = path.getUtf8String(0)
     model.directories.remove(jPath)
-    0
+    ERR_OK
   }
 
   def doChmod(path: MemoryAddress, attrs: Short): Int = {
@@ -151,6 +152,6 @@ case class Handler(model: Model) {
     if (model.files.contains(jPath)) {
       model.files.put(jPath, model.files(jPath).copy(attributes = attrs).setCtime())
     }
-    0
+    ERR_OK
   }
 }
