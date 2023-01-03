@@ -6,6 +6,8 @@ ThisBuild / javaOptions ++= Seq("--enable-preview")
 
 ThisBuild / javacOptions ++= Seq("--enable-preview", "--release", "19")
 
+exportJars := true
+
 libraryDependencies ++= Seq(
   "com.tethys-json" %% "tethys-core" % "0.26.0",
   "com.tethys-json" %% "tethys-jackson" % "0.26.0",

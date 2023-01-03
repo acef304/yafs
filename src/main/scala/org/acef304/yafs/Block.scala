@@ -9,7 +9,7 @@ trait Block {
 
 case class FullBlock(hash: String, content: Array[Byte]) extends Block
 
-case class LiteBlock(hash: String) extends Block {
+case class LiteBlock(hash: String)(implicit config: Config) extends Block {
   lazy val content: Array[Byte] = BlockStorage.readBlock(hash)
 }
 
@@ -20,12 +20,12 @@ object Block {
   }
 
   def apply(content: Array[Byte]): Block = FullBlock(getMd5Hash(content), content)
-  def apply(hash: String): Block = LiteBlock(hash)
+  def apply(hash: String)(implicit config: Config): Block = LiteBlock(hash)
 }
 
 object BlockStorage {
-  val blockDir = "blocks"
+  private final val blockDir = "blocks"
 
-  def readBlock(hash: String): Array[Byte] = Files.readAllBytes(Path.of(blockDir, hash))
-  def storeBlock(block: Block): Unit = Files.write(Path.of(blockDir, block.hash), block.content, StandardOpenOption.CREATE)
+  def readBlock(hash: String)(implicit config: Config): Array[Byte] = Files.readAllBytes(Path.of(config.workdir, blockDir, hash))
+  def storeBlock(block: Block)(implicit config: Config): Unit = Files.write(Path.of(config.workdir, blockDir, block.hash), block.content, StandardOpenOption.CREATE)
 }
