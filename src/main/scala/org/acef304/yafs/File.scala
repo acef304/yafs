@@ -27,7 +27,7 @@ object File {
   val defaultUid = 501
   val defaultGid = 20
 
-  def withContent(content: Array[Byte]): File = {
+  def withContent(content: Array[Byte])(implicit metrics: Metrics): File = {
     File(
       content = FileContent.fromByteArray(content),
       attributes = defaultAttribute,

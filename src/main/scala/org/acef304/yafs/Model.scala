@@ -9,7 +9,7 @@ import tethys.derivation.auto._
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 
-case class Model(directories: TrieMap[String, File], files: TrieMap[String, File])(implicit config: Config) {
+case class Model(directories: TrieMap[String, File], files: TrieMap[String, File])(implicit config: Config, metrics: Metrics) {
   def isDir(path: String): Boolean = directories.contains(path)
 
   def addFile(filename: String): Unit = files.put(filename, File.withContent(new Array[Byte](0)))
@@ -26,9 +26,9 @@ object Model {
   implicit val fileContentWriter: JsonWriter[FileContent] = jsonWriter[FileContent]
   implicit val fileWriter: JsonWriter[File] = jsonWriter[File]
 
-  def apply(implicit config: Config): Model = Model(new TrieMap[String, File], new TrieMap[String, File])
+  def apply(implicit config: Config, metrics: Metrics): Model = Model(new TrieMap[String, File], new TrieMap[String, File])
 
-  def restore()(implicit config: Config): Either[Exception, Model] = {
+  def restore()(implicit config: Config, metrics: Metrics): Either[Exception, Model] = {
     implicit val timeReader: JsonReader[Time] = jsonReader[Time]
     implicit val blockReader: JsonReader[Block] = JsonReader.stringReader.map(hash => LiteBlock(hash))
     implicit val fileContentReader: JsonReader[FileContent] = jsonReader[FileContent]

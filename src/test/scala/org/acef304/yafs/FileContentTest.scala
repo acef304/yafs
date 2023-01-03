@@ -22,6 +22,8 @@ class FileContentTest extends org.scalatest.flatspec.AnyFlatSpec {
     Block(arrayOf(3, 10))
   ))
 
+  implicit val metrics: Metrics = new Metrics
+
   "readToBuffer" should "work for empty BlockArray" in {
     val blockArray = FileContent.fromByteArray(new Array[Byte](0))
     val buffer = ByteBuffer.allocate(10)
@@ -53,6 +55,8 @@ class FileContentTest extends org.scalatest.flatspec.AnyFlatSpec {
     val array: Array[Byte] = Array.fill(10) {
       0
     }
+    offset: 1 111 459 654 880 remain: 9 223 370 925 396 169 503
+
 
     val written = emptyBlockArray.insert(array, 0)
     assert(written compareByContent FileContent.fromByteArray(array))

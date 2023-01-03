@@ -6,7 +6,7 @@ import org.fuse.fuse_h_1.fuse_main_real
 import java.lang.foreign.{MemoryAddress, MemorySegment, MemorySession, ValueLayout}
 import java.nio.{ByteBuffer, ByteOrder}
 
-case class Handler(model: Model) {
+case class Handler(model: Model)(implicit metrics: Metrics) {
   val ERR_OK = 0;
 
   var mSession: MemorySession = null

@@ -14,12 +14,16 @@ case class LiteBlock(hash: String)(implicit config: Config) extends Block {
 }
 
 object Block {
-  private def getMd5Hash(content: Array[Byte]): String = {
+  def getMd5Hash(content: Array[Byte])(implicit metrics: Metrics): String = {
+    val startTime = System.nanoTime()
     import org.apache.commons.codec.digest.DigestUtils
-    DigestUtils.md5Hex(content).toUpperCase
+    val res = DigestUtils.md5Hex(content).toUpperCase
+    metrics.addMetric(Metric("Block.getMd5Hash", System.nanoTime() - startTime))
+    res
   }
 
-  def apply(content: Array[Byte]): Block = FullBlock(getMd5Hash(content), content)
+//  def apply(content: Array[Byte]): Block = ContentBlock(content)
+  def apply(content: Array[Byte])(implicit metrics: Metrics): Block = FullBlock(getMd5Hash(content), content)
   def apply(hash: String)(implicit config: Config): Block = LiteBlock(hash)
 }
 
