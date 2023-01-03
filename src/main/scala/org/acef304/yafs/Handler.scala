@@ -10,7 +10,6 @@ case class Handler(model: Model) {
   val ERR_OK = 0;
 
   var mSession: MemorySession = null
-//  val ggg = new com.sun.security.auth.module.UnixSystem
 
   def main(): Unit = {
     System.load("/usr/local/lib/libfuse.dylib") // TODO
@@ -41,8 +40,6 @@ case class Handler(model: Model) {
         fuse_operations.chmod$set(operationsMemorySegment, fuse_operations.chmod.allocate(doChmod, session).address)
         fuse_main_real(argumentCount, argumentSpace, operationsMemorySegment, operationsMemorySegment.byteSize, MemoryAddress.NULL)
       } finally if (session != null) session.close()
-//      println(Model.getDirectoriesString)
-//      println(Model.getFilesString)
     }
   }
 
@@ -64,7 +61,7 @@ case class Handler(model: Model) {
       file = model.files(jPath)
       mask = S_IFREG
       stat.st_nlink$set(statMemorySegment, 1.toShort)
-      stat.st_size$set(statMemorySegment, model.files(jPath).content.length())
+      stat.st_size$set(statMemorySegment, model.files(jPath).content.length)
     }
     else return -2
     // setting the stat atim (last access time)
@@ -106,10 +103,7 @@ case class Handler(model: Model) {
     val byteBuffer = MemorySegment.ofAddress(buffer, size, mSession).asByteBuffer
     model.files(jPath).content.readToBuffer(byteBuffer, offset, size)
     model.files.put(jPath, model.files(jPath).setAtime())
-//    val src = util.Arrays.copyOfRange(content, Math.toIntExact(offset), Math.toIntExact(size))
-//    byteBuffer.put(src)
     size.toInt
-//    src.length
   }
 
   def doMkdir(path: MemoryAddress, mode: Short): Int = {

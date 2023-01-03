@@ -2,8 +2,8 @@ package org.acef304.yafs
 
 import java.nio.ByteBuffer
 
-case class FileContent(val blocks: List[Block]) {
-  def length(): Long = blocks.foldLeft(0L)((sum, block) => sum + block.content.length)
+case class FileContent(blocks: List[Block]) {
+  lazy val length: Long = blocks.foldLeft(0L)((sum, block) => sum + block.content.length)
 
   def readToBuffer(buffer: ByteBuffer, offset: Long, size: Long): Long = {
     take(offset, size).map(block => buffer.put(block.content))
@@ -25,7 +25,7 @@ case class FileContent(val blocks: List[Block]) {
 
   def insert(insertion: Array[Byte], offset: Long): FileContent = {
     new FileContent(
-      take(0,offset) ++ (Block(insertion) :: take(offset + insertion.length, Long.MaxValue))
+      (take(0,offset) ++ (Block(insertion) :: take(offset + insertion.length, Long.MaxValue))).filter(_.content.length > 0)
     )
   }
 
@@ -41,16 +41,5 @@ case class FileContent(val blocks: List[Block]) {
 
 object FileContent {
   def fromByteArray(content: Array[Byte]) = new FileContent(List(Block(content)))
-}
-
-case class Block(hash: String, content: Array[Byte])
-
-object Block {
-  private def getMd5Hash(content: Array[Byte]): String = {
-    import org.apache.commons.codec.digest.DigestUtils
-    DigestUtils.md5Hex(content).toUpperCase
-  }
-
-  def apply(content: Array[Byte]): Block = Block(getMd5Hash(content), content)
 }
 

@@ -1,10 +1,10 @@
 package org.acef304.yafs
 
-import java.util
-
 object MyApp extends App {
-  println("Hello world")
-  val model = Model()
-  Handler(model).main()
-  model.dumpFs()
+  Model.restore() match {
+    case Left(error) => println(s"Got error during restore fs: $error")
+    case Right(model) =>
+        Handler(model).main()
+        model.dumpFs()
+  }
 }
